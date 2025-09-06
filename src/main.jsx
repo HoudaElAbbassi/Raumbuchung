@@ -1,7 +1,8 @@
+// src/main.jsx - Vervollständigt mit DB Test Integration
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import RoomBookingApp from './RoomBookingApp.jsx'
-import './index.css'
+import '../index.css'
 
 // Error Boundary für bessere Fehlerbehandlung
 class ErrorBoundary extends React.Component {
@@ -11,12 +12,10 @@ class ErrorBoundary extends React.Component {
     }
 
     static getDerivedStateFromError(error) {
-        // Update state so the next render will show the fallback UI
         return { hasError: true };
     }
 
     componentDidCatch(error, errorInfo) {
-        // Log error details
         console.error('Vereinsraum App Error:', error);
         console.error('Error Info:', errorInfo);
 
@@ -28,7 +27,6 @@ class ErrorBoundary extends React.Component {
 
     render() {
         if (this.state.hasError) {
-            // Fallback UI
             return (
                 <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
                     <div className="bg-white rounded-lg shadow-lg p-8 w-full max-w-md text-center">
@@ -59,6 +57,14 @@ class ErrorBoundary extends React.Component {
                             >
                                 Daten zurücksetzen & neu laden
                             </button>
+                            <button
+                                onClick={() => {
+                                    window.location.href = window.location.origin + '?mode=dbtest';
+                                }}
+                                className="w-full bg-purple-600 text-white py-2 px-4 rounded-lg hover:bg-purple-700 transition-colors"
+                            >
+                                Datenbank-Test öffnen
+                            </button>
                         </div>
 
                         {/* Error Details für Entwicklung */}
@@ -83,7 +89,122 @@ class ErrorBoundary extends React.Component {
     }
 }
 
-// Service Worker Registration für PWA Features (optional)
+// App Mode Detection
+const getAppMode = () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const mode = urlParams.get('mode');
+
+    // Debug-Modi für Entwicklung
+    if (mode === 'dbtest') return 'database-test';
+    if (mode === 'debug') return 'debug';
+
+    // Standard-Modus
+    return 'app';
+};
+
+// Debug Panel Component
+const DebugPanel = () => {
+    const [debugInfo, setDebugInfo] = React.useState(null);
+
+    React.useEffect(() => {
+        const info = {
+                timestamp: new Date().toISOString(),
+                environment: {
+                    nodeEnv: process.env.NODE_ENV,
+                    userAgent: navigator.userAgent,
+                    url: window.location.href,
+                    localStorage: {
+                        available: typeof Storage !== 'undefined',
+                        items: localStorage.length
+                    },
+                    sessionStorage: {
+                        available: typeof sessionStorage !== 'undefined',
+                        items: sessionStorage?.length || 0
+                    }
+                },
+                features: {
+                    fetch: typeof fetch !== 'undefined',
+                    promises: typeof Promise !== 'undefined',
+                serviceWorker: 'serviceWorker' in navigator
+            }
+    };
+
+        setDebugInfo(info);
+    }, []);
+
+    return (
+        <div className="min-h-screen bg-gray-50 p-4">
+            <div className="max-w-4xl mx-auto">
+                <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
+                    <h1 className="text-2xl font-bold text-gray-900 mb-4">🐛 Debug Panel</h1>
+                    <div className="flex gap-3 mb-6">
+                        <button
+                            onClick={() => window.location.href = window.location.origin}
+                            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+                        >
+                            Zur Hauptapp
+                        </button>
+                        <button
+                            onClick={() => window.location.href = window.location.origin + '?mode=dbtest'}
+                            className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700"
+                        >
+                            Datenbank-Test
+                        </button>
+                        <button
+                            onClick={() => {
+                                localStorage.clear();
+                                sessionStorage.clear();
+                                window.location.reload();
+                            }}
+                            className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700"
+                        >
+                            Alle Daten löschen
+                        </button>
+                    </div>
+                </div>
+
+                {debugInfo && (
+                    <div className="bg-white rounded-lg shadow-lg p-6">
+                        <h2 className="text-xl font-semibold mb-4">System-Informationen</h2>
+                        <pre className="bg-gray-100 p-4 rounded-lg overflow-auto text-xs">
+                            {JSON.stringify(debugInfo, null, 2)}
+                        </pre>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
+
+// App Mode Router
+const AppModeRouter = () => {
+    const mode = getAppMode();
+
+    switch (mode) {
+        case 'database-test':
+            return (
+                <div className="min-h-screen bg-gray-50 p-4">
+                    <div className="mb-6 text-center">
+                        <button
+                            onClick={() => window.location.href = window.location.origin}
+                            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                        >
+                            ← Zurück zur Hauptapp
+                        </button>
+                    </div>
+                    <DatabaseTestPanel />
+                </div>
+            );
+
+        case 'debug':
+            return <DebugPanel />;
+
+        default:
+            return <RoomBookingApp />;
+    }
+};
+
+// Service Worker Registration
 const registerServiceWorker = () => {
     if ('serviceWorker' in navigator && process.env.NODE_ENV === 'production') {
         window.addEventListener('load', () => {
@@ -100,14 +221,12 @@ const registerServiceWorker = () => {
 
 // App Performance Monitoring
 const initPerformanceMonitoring = () => {
-    // Messe App-Ladezeit
     if ('performance' in window) {
         window.addEventListener('load', () => {
             setTimeout(() => {
                 const loadTime = performance.now();
                 console.log(`Vereinsraum App geladen in ${Math.round(loadTime)}ms`);
 
-                // Optional: Sende Metriken an Analytics
                 if (loadTime > 3000) {
                     console.warn('App-Ladezeit über 3 Sekunden - Performance prüfen');
                 }
@@ -116,11 +235,28 @@ const initPerformanceMonitoring = () => {
     }
 };
 
+// Database Connection Test Helper
+const quickDatabaseTest = async () => {
+    try {
+        const response = await fetch('/api/db-test');
+        const result = await response.json();
+
+        if (result.success) {
+            console.log('✅ Datenbank-Schnelltest erfolgreich');
+            return true;
+        } else {
+            console.warn('⚠️ Datenbank-Schnelltest mit Warnungen');
+            return false;
+        }
+    } catch (error) {
+        console.error('❌ Datenbank-Schnelltest fehlgeschlagen:', error);
+        return false;
+    }
+};
+
 // Initialize App State Recovery
 const initStateRecovery = () => {
-    // Stelle App-State nach Absturz wieder her
     window.addEventListener('beforeunload', () => {
-        // Speichere kritische App-Daten
         const appState = {
             timestamp: Date.now(),
             url: window.location.href,
@@ -129,18 +265,15 @@ const initStateRecovery = () => {
         sessionStorage.setItem('vereinsraum_recovery', JSON.stringify(appState));
     });
 
-    // Prüfe auf vorherigen Absturz
     const recoveryData = sessionStorage.getItem('vereinsraum_recovery');
     if (recoveryData) {
         const data = JSON.parse(recoveryData);
         const timeDiff = Date.now() - data.timestamp;
 
-        // Wenn weniger als 30 Sekunden vergangen, könnte es ein Absturz gewesen sein
         if (timeDiff < 30000) {
             console.log('App Recovery: Möglicher vorheriger Absturz erkannt');
         }
 
-        // Cleanup
         sessionStorage.removeItem('vereinsraum_recovery');
     }
 };
@@ -161,15 +294,15 @@ const checkBrowserCompatibility = () => {
     if (missingFeatures.length > 0) {
         console.warn('Fehlende Browser-Features:', missingFeatures);
 
-        // Zeige Warnung für sehr alte Browser
         if (missingFeatures.includes('fetch') || missingFeatures.includes('Promise')) {
             const warningDiv = document.createElement('div');
             warningDiv.innerHTML = `
-        <div style="background-color: #fef3c7; color: #92400e; padding: 1rem; text-align: center; font-family: sans-serif;">
-          <strong>⚠️ Browser-Warnung:</strong> Ihr Browser ist möglicherweise zu alt. 
-          Bitte aktualisieren Sie auf eine neuere Version für die beste Erfahrung.
-        </div>
-      `;
+                <div style="background-color: #fef3c7; color: #92400e; padding: 1rem; text-align: center; font-family: sans-serif; position: fixed; top: 0; left: 0; right: 0; z-index: 9999;">
+                    <strong>⚠️ Browser-Warnung:</strong> Ihr Browser ist möglicherweise zu alt. 
+                    Bitte aktualisieren Sie auf eine neuere Version für die beste Erfahrung.
+                    <button onclick="this.parentElement.parentElement.remove()" style="margin-left: 1rem; padding: 0.25rem 0.5rem; background: #92400e; color: white; border: none; border-radius: 0.25rem; cursor: pointer;">×</button>
+                </div>
+            `;
             document.body.insertBefore(warningDiv, document.body.firstChild);
         }
     }
@@ -178,7 +311,6 @@ const checkBrowserCompatibility = () => {
 // Development Helpers
 const initDevelopmentHelpers = () => {
     if (process.env.NODE_ENV === 'development') {
-        // React DevTools Nachricht
         console.log(
             '%c🚀 Vereinsraum Buchungs-App',
             'color: #3b82f6; font-size: 16px; font-weight: bold;'
@@ -223,6 +355,18 @@ const initDevelopmentHelpers = () => {
                 localStorage.setItem('vereinsraum_bookings', JSON.stringify(testBookings));
                 console.log('Test-Buchungen generiert:', testBookings);
                 window.location.reload();
+            },
+            testDatabase: async () => {
+                console.log('🔍 Starte Datenbank-Test...');
+                const result = await quickDatabaseTest();
+                console.log('Test-Ergebnis:', result);
+                return result;
+            },
+            openDatabaseTest: () => {
+                window.location.href = window.location.origin + '?mode=dbtest';
+            },
+            openDebugPanel: () => {
+                window.location.href = window.location.origin + '?mode=debug';
             }
         };
 
@@ -230,6 +374,18 @@ const initDevelopmentHelpers = () => {
             '%cDebug-Funktionen verfügbar unter window.vereinsraumDebug',
             'color: #7c3aed; font-size: 12px;'
         );
+
+        // Auto-Datenbank-Test beim Start
+        setTimeout(() => {
+            quickDatabaseTest().then(result => {
+                if (!result) {
+                    console.log(
+                        '%c💡 Tipp: Starten Sie den Datenbank-Test mit window.vereinsraumDebug.openDatabaseTest()',
+                        'color: #f59e0b; font-size: 12px;'
+                    );
+                }
+            });
+        }, 2000);
     }
 };
 
@@ -248,7 +404,7 @@ const initApp = () => {
         // Development Helpers
         initDevelopmentHelpers();
 
-        // Service Worker (für PWA Features)
+        // Service Worker
         registerServiceWorker();
 
         // React App rendern
@@ -257,7 +413,7 @@ const initApp = () => {
         root.render(
             <React.StrictMode>
                 <ErrorBoundary>
-                    <RoomBookingApp />
+                    <AppModeRouter />
                 </ErrorBoundary>
             </React.StrictMode>
         );
@@ -269,45 +425,61 @@ const initApp = () => {
 
         // Fallback: Zeige einfache Fehlermeldung
         document.getElementById('root').innerHTML = `
-      <div style="
-        min-height: 100vh; 
-        display: flex; 
-        align-items: center; 
-        justify-content: center; 
-        background-color: #f9fafb;
-        font-family: system-ui, sans-serif;
-        padding: 1rem;
-      ">
-        <div style="
-          background-color: white; 
-          padding: 2rem; 
-          border-radius: 0.5rem; 
-          box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
-          text-align: center;
-          max-width: 400px;
-          width: 100%;
-        ">
-          <h1 style="color: #dc2626; margin-bottom: 1rem;">Fehler beim Laden</h1>
-          <p style="color: #6b7280; margin-bottom: 1.5rem;">
-            Die Vereinsraum-App konnte nicht geladen werden.
-          </p>
-          <button 
-            onclick="window.location.reload()" 
-            style="
-              background-color: #3b82f6; 
-              color: white; 
-              padding: 0.75rem 1.5rem; 
-              border: none; 
-              border-radius: 0.5rem; 
-              cursor: pointer;
-              font-weight: 500;
-            "
-          >
-            Seite neu laden
-          </button>
-        </div>
-      </div>
-    `;
+            <div style="
+                min-height: 100vh; 
+                display: flex; 
+                align-items: center; 
+                justify-content: center; 
+                background-color: #f9fafb;
+                font-family: system-ui, sans-serif;
+                padding: 1rem;
+            ">
+                <div style="
+                    background-color: white; 
+                    padding: 2rem; 
+                    border-radius: 0.5rem; 
+                    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+                    text-align: center;
+                    max-width: 400px;
+                    width: 100%;
+                ">
+                    <h1 style="color: #dc2626; margin-bottom: 1rem;">Fehler beim Laden</h1>
+                    <p style="color: #6b7280; margin-bottom: 1.5rem;">
+                        Die Vereinsraum-App konnte nicht geladen werden.
+                    </p>
+                    <div style="display: flex; gap: 0.5rem; flex-direction: column;">
+                        <button 
+                            onclick="window.location.reload()" 
+                            style="
+                                background-color: #3b82f6; 
+                                color: white; 
+                                padding: 0.75rem 1.5rem; 
+                                border: none; 
+                                border-radius: 0.5rem; 
+                                cursor: pointer;
+                                font-weight: 500;
+                            "
+                        >
+                            Seite neu laden
+                        </button>
+                        <button 
+                            onclick="window.location.href = window.location.origin + '?mode=dbtest'" 
+                            style="
+                                background-color: #7c3aed; 
+                                color: white; 
+                                padding: 0.75rem 1.5rem; 
+                                border: none; 
+                                border-radius: 0.5rem; 
+                                cursor: pointer;
+                                font-weight: 500;
+                            "
+                        >
+                            Datenbank-Test
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
     }
 };
 

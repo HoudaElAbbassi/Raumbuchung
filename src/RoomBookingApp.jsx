@@ -57,190 +57,67 @@ const RoomBookingApp = () => {
         { id: 15, name: 'Sophie Wolf', email: 'sophie@verein.de', password: 'demo123', role: 'user' }
     ], []);
 
-    // Demo-Buchungen
-    const demoBookings = useMemo(() => [
-        {
-            id: 1,
-            userId: 1,
-            userName: 'Anna Schmidt',
-            title: 'Yoga-Kurs',
-            date: '2025-08-15',
-            startTime: '18:00',
-            endTime: '19:30',
-            description: 'Wöchentlicher Yoga-Kurs für Anfänger'
-        },
-        {
-            id: 2,
-            userId: 2,
-            userName: 'Max Müller',
-            title: 'Vorstandssitzung',
-            date: '2025-08-16',
-            startTime: '19:00',
-            endTime: '21:00',
-            description: 'Monatliche Vorstandssitzung'
-        },
-        {
-            id: 3,
-            userId: 3,
-            userName: 'Lisa Weber',
-            title: 'Buchclub',
-            date: '2025-08-17',
-            startTime: '15:00',
-            endTime: '17:00',
-            description: 'Monatliches Treffen des Buchclubs'
-        }
-    ], []);
+    // Demo-Buchungen für die nächsten Tage
+    const generateDemoBookings = useCallback(() => {
+        const today = new Date();
+        return [
+            {
+                id: 1,
+                userId: 1,
+                userName: 'Anna Schmidt',
+                title: 'Yoga-Kurs',
+                date: new Date(today.getTime() + 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                startTime: '18:00',
+                endTime: '19:30',
+                description: 'Wöchentlicher Yoga-Kurs für Anfänger',
+                isRecurring: true,
+                recurringGroup: 'yoga-series-1'
+            },
+            {
+                id: 2,
+                userId: 2,
+                userName: 'Max Müller',
+                title: 'Vorstandssitzung',
+                date: new Date(today.getTime() + 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                startTime: '19:00',
+                endTime: '21:00',
+                description: 'Monatliche Vorstandssitzung'
+            },
+            {
+                id: 3,
+                userId: 3,
+                userName: 'Lisa Weber',
+                title: 'Buchclub',
+                date: new Date(today.getTime() + 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                startTime: '15:00',
+                endTime: '17:00',
+                description: 'Monatliches Treffen des Buchclubs'
+            }
+        ];
+    }, []);
 
     // Initialisierung beim App-Start
     useEffect(() => {
-        initializeApp();
-    }, []);
-
-    const initializeApp = async () => {
-        try {
-            setLoading(true);
-
-            // Lade gespeicherte Benutzerdaten
-            const savedUser = localStorage.getItem('vereinsraum_currentUser');
-            const savedToken = localStorage.getItem('vereinsraum_token');
-
-            if (savedUser && savedToken) {
-                const user = JSON.parse(savedUser);
-
-                // Verifiziere Token mit API
-                const isValid = await verifyToken(savedToken);
-
-                if (isValid) {
-                    setCurrentUser(user);
-                    setShowLogin(false);
-                    await loadBookingsFromAPI();
-                    await loadUsersFromAPI();
-                } else {
-                    // Token ungültig - Logout
-                    handleLogout();
-                }
-            } else {
-                // Fallback zu Demo-Daten
-                setUsers(demoUsers);
-                setBookings(demoBookings);
-            }
-        } catch (error) {
-            console.error('Fehler bei App-Initialisierung:', error);
-            showNotification('Fehler beim Laden der App', 'error');
-
-            // Fallback zu Demo-Daten
-            setUsers(demoUsers);
-            setBookings(demoBookings);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    // API-Funktionen
-    const verifyToken = async (token) => {
-        try {
-            const response = await fetch('/api/auth/verify', {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-
-            return response.ok;
-        } catch (error) {
-            console.error('Token-Verifikation fehlgeschlagen:', error);
-            return false;
-        }
-    };
-
-    const loadBookingsFromAPI = async () => {
-        try {
-            const response = await fetch('/api/bookings');
-            if (response.ok) {
-                const data = await response.json();
-                setBookings(data.bookings || data);
-            } else {
-                throw new Error('API-Fehler beim Laden der Buchungen');
-            }
-        } catch (error) {
-            console.error('Fehler beim Laden der Buchungen:', error);
-
-            // Fallback zu lokalen Daten
-            const savedBookings = localStorage.getItem('vereinsraum_bookings');
-            if (savedBookings) {
-                setBookings(JSON.parse(savedBookings));
-            } else {
-                setBookings(demoBookings);
-                localStorage.setItem('vereinsraum_bookings', JSON.stringify(demoBookings));
-            }
-        }
-    };
-
-    const loadUsersFromAPI = async () => {
-        try {
-            const response = await fetch('/api/auth/users');
-            if (response.ok) {
-                const apiUsers = await response.json();
-                setUsers(apiUsers);
-            } else {
-                setUsers(demoUsers);
-            }
-        } catch (error) {
-            console.error('Fehler beim Laden der Benutzer:', error);
-            setUsers(demoUsers);
-        }
-    };
+        setUsers(demoUsers);
+        setBookings(generateDemoBookings());
+    }, [demoUsers, generateDemoBookings]);
 
     const handleLogin = async (email, password) => {
         try {
             setLoading(true);
 
-            const response = await fetch('/api/auth/login', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ email, password }),
-            });
-
-            const data = await response.json();
-
-            if (response.ok && data.success) {
-                setCurrentUser(data.user);
-                setShowLogin(false);
-                localStorage.setItem('vereinsraum_currentUser', JSON.stringify(data.user));
-                localStorage.setItem('vereinsraum_token', data.token);
-
-                await loadBookingsFromAPI();
-                await loadUsersFromAPI();
-
-                showNotification(`Willkommen, ${data.user.name}!`, 'success');
-            } else {
-                throw new Error(data.error || 'Anmeldung fehlgeschlagen');
-            }
-        } catch (error) {
-            console.error('Login-Fehler:', error);
-
-            // Fallback zu Demo-Login
+            // Demo-Login
             const user = demoUsers.find(u => u.email === email && u.password === password);
             if (user) {
                 setCurrentUser(user);
                 setShowLogin(false);
-                localStorage.setItem('vereinsraum_currentUser', JSON.stringify(user));
-
-                // Lade lokale Daten
-                const savedBookings = localStorage.getItem('vereinsraum_bookings');
-                if (savedBookings) {
-                    setBookings(JSON.parse(savedBookings));
-                } else {
-                    setBookings(demoBookings);
-                    localStorage.setItem('vereinsraum_bookings', JSON.stringify(demoBookings));
-                }
-                setUsers(demoUsers);
-
-                showNotification(`Willkommen, ${user.name}! (Offline-Modus)`, 'warning');
+                showNotification(`Willkommen, ${user.name}!`, 'success');
             } else {
                 showNotification('Ungültige Anmeldedaten', 'error');
             }
+        } catch (error) {
+            console.error('Login-Fehler:', error);
+            showNotification('Anmeldung fehlgeschlagen', 'error');
         } finally {
             setLoading(false);
         }
@@ -250,74 +127,7 @@ const RoomBookingApp = () => {
         setCurrentUser(null);
         setShowLogin(true);
         setShowAdminPanel(false);
-        localStorage.removeItem('vereinsraum_currentUser');
-        localStorage.removeItem('vereinsraum_token');
-        setBookings([]);
-        setUsers([]);
         showNotification('Erfolgreich abgemeldet', 'success');
-    }, []);
-
-    const saveBookingsToAPI = async (bookingData, isUpdate = false, deleteParams = null) => {
-        try {
-            let response;
-            const token = localStorage.getItem('vereinsraum_token');
-
-            if (deleteParams) {
-                const deleteUrl = typeof deleteParams === 'string' && deleteParams.includes('recurringGroup')
-                    ? `/api/bookings?${deleteParams}`
-                    : `/api/bookings?id=${deleteParams}`;
-
-                response = await fetch(deleteUrl, {
-                    method: 'DELETE',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    }
-                });
-            } else if (isUpdate) {
-                response = await fetch('/api/bookings', {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    },
-                    body: JSON.stringify(bookingData)
-                });
-            } else {
-                response = await fetch('/api/bookings', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    },
-                    body: JSON.stringify(bookingData)
-                });
-            }
-
-            if (response.ok) {
-                const result = await response.json();
-                await loadBookingsFromAPI();
-
-                if (result.message) {
-                    showNotification(result.message, 'success');
-                }
-
-                return true;
-            } else {
-                const errorData = await response.json();
-                throw new Error(errorData.error || 'API-Fehler');
-            }
-        } catch (error) {
-            console.error('API-Fehler:', error);
-            showNotification(error.message || 'Fehler beim Speichern', 'error');
-            return false;
-        }
-    };
-
-    // Fallback zu lokaler Speicherung
-    const saveBookingsLocally = useCallback((newBookings) => {
-        setBookings(newBookings);
-        localStorage.setItem('vereinsraum_bookings', JSON.stringify(newBookings));
     }, []);
 
     const addBooking = async (bookingData) => {
@@ -345,33 +155,23 @@ const RoomBookingApp = () => {
             return false;
         }
 
-        // API-Daten vorbereiten
-        const apiData = {
-            ...bookingData,
-            userId: currentUser.id,
-            userName: currentUser.name
-        };
-
-        const success = await saveBookingsToAPI(apiData, !!editingBooking);
-
-        if (!success) {
-            // Fallback zu lokaler Speicherung
-            if (editingBooking) {
-                const updatedBookings = bookings.map(b =>
-                    b.id === editingBooking.id ? { ...editingBooking, ...bookingData } : b
-                );
-                saveBookingsLocally(updatedBookings);
-            } else {
-                const newBooking = {
-                    id: Date.now(),
-                    userId: currentUser.id,
-                    userName: currentUser.name,
-                    ...bookingData
-                };
-                saveBookingsLocally([...bookings, newBooking]);
-            }
-
-            showNotification('Buchung lokal gespeichert (Offline-Modus)', 'warning');
+        if (editingBooking) {
+            // Buchung bearbeiten
+            const updatedBookings = bookings.map(b =>
+                b.id === editingBooking.id ? { ...b, ...bookingData } : b
+            );
+            setBookings(updatedBookings);
+            showNotification('Buchung erfolgreich aktualisiert', 'success');
+        } else {
+            // Neue Buchung erstellen
+            const newBooking = {
+                id: Date.now(),
+                userId: currentUser.id,
+                userName: currentUser.name,
+                ...bookingData
+            };
+            setBookings([...bookings, newBooking]);
+            showNotification('Buchung erfolgreich erstellt', 'success');
         }
 
         setEditingBooking(null);
@@ -380,23 +180,12 @@ const RoomBookingApp = () => {
     };
 
     const addRecurringBookings = async (bookingData) => {
-        const apiData = {
-            ...bookingData,
-            userId: currentUser.id,
-            userName: currentUser.name
-        };
-
-        const success = await saveBookingsToAPI(apiData);
-
-        if (!success) {
-            // Fallback zu lokaler Erstellung
-            const result = createRecurringBookingsLocally(bookingData);
-            if (result.success) {
-                saveBookingsLocally([...bookings, ...result.bookings]);
-                showNotification(result.message + ' (Offline-Modus)', 'warning');
-            } else {
-                return false;
-            }
+        const result = createRecurringBookingsLocally(bookingData);
+        if (result.success) {
+            setBookings([...bookings, ...result.bookings]);
+            showNotification(result.message, 'success');
+        } else {
+            return false;
         }
 
         setShowBookingForm(false);
@@ -408,6 +197,7 @@ const RoomBookingApp = () => {
         const endOfYear = new Date(startDate.getFullYear(), 11, 31);
         const newBookings = [];
         const conflicts = [];
+        const recurringGroup = `recurring_${Date.now()}_${currentUser.id}`;
 
         let currentDate = new Date(startDate);
         let weekCount = 0;
@@ -437,7 +227,7 @@ const RoomBookingApp = () => {
                     endTime: bookingData.endTime,
                     description: bookingData.description,
                     isRecurring: true,
-                    recurringGroup: Date.now().toString()
+                    recurringGroup: recurringGroup
                 });
             }
 
@@ -445,66 +235,41 @@ const RoomBookingApp = () => {
             weekCount++;
         }
 
-        if (conflicts.length > 0) {
-            const conflictDates = conflicts.map(date =>
-                new Date(date + 'T00:00:00').toLocaleDateString('de-DE')
-            ).join(', ');
-
-            const proceed = window.confirm(
-                `Konflikte an folgenden Terminen gefunden: ${conflictDates}\n\n` +
-                `${newBookings.length} Termine können erstellt werden. Fortfahren?`
-            );
-
-            if (!proceed) {
-                return { success: false };
-            }
+        if (conflicts.length > 0 && newBookings.length === 0) {
+            showNotification('Alle Termine haben Konflikte', 'error');
+            return { success: false };
         }
 
         return {
             success: true,
             bookings: newBookings,
-            message: `${newBookings.length} wiederkehrende Termine bis Jahresende erstellt`
+            message: `${newBookings.length} wiederkehrende Termine bis Jahresende erstellt${conflicts.length > 0 ? `, ${conflicts.length} übersprungen` : ''}`
         };
     };
 
     const deleteBooking = async (id) => {
         const bookingToDelete = bookings.find(b => b.id === id);
 
-        if (bookingToDelete?.isRecurring) {
+        if (bookingToDelete?.isRecurring && bookingToDelete.recurringGroup) {
             const isDeleteSeries = window.confirm(
                 'Dies ist ein wiederkehrender Termin. Möchten Sie alle Termine dieser Serie löschen?\n\n' +
                 'OK = Ganze Serie löschen\n' +
                 'Abbrechen = Nur diesen Termin löschen'
             );
 
-            if (isDeleteSeries && bookingToDelete.recurringGroup) {
-                const success = await saveBookingsToAPI(null, false, `recurringGroup=${bookingToDelete.recurringGroup}`);
-
-                if (!success) {
-                    const updatedBookings = bookings.filter(b => b.recurringGroup !== bookingToDelete.recurringGroup);
-                    const deletedCount = bookings.length - updatedBookings.length;
-                    saveBookingsLocally(updatedBookings);
-                    showNotification(`${deletedCount} Termine der Serie gelöscht (Offline)`, 'warning');
-                }
-            } else {
-                const success = await saveBookingsToAPI(null, false, id);
-
-                if (!success) {
-                    const updatedBookings = bookings.filter(b => b.id !== id);
-                    saveBookingsLocally(updatedBookings);
-                    showNotification('Termin gelöscht (Offline)', 'warning');
-                }
+            if (isDeleteSeries) {
+                const updatedBookings = bookings.filter(b => b.recurringGroup !== bookingToDelete.recurringGroup);
+                const deletedCount = bookings.length - updatedBookings.length;
+                setBookings(updatedBookings);
+                showNotification(`${deletedCount} Termine der Serie gelöscht`, 'success');
+                return;
             }
-        } else {
-            if (window.confirm('Buchung wirklich löschen?')) {
-                const success = await saveBookingsToAPI(null, false, id);
+        }
 
-                if (!success) {
-                    const updatedBookings = bookings.filter(b => b.id !== id);
-                    saveBookingsLocally(updatedBookings);
-                    showNotification('Termin gelöscht (Offline)', 'warning');
-                }
-            }
+        if (window.confirm('Buchung wirklich löschen?')) {
+            const updatedBookings = bookings.filter(b => b.id !== id);
+            setBookings(updatedBookings);
+            showNotification('Termin gelöscht', 'success');
         }
     };
 
@@ -517,10 +282,10 @@ const RoomBookingApp = () => {
     const showNotification = useCallback((message, type = 'info') => {
         setNotification({ message, type, id: Date.now() });
 
-        // Auto-hide nach 5 Sekunden
+        // Auto-hide nach 4 Sekunden
         setTimeout(() => {
             setNotification(null);
-        }, 5000);
+        }, 4000);
     }, []);
 
     // Helper Functions
@@ -586,17 +351,8 @@ const RoomBookingApp = () => {
         setCurrentView('day');
     }, []);
 
-    const refreshData = async () => {
-        setLoading(true);
-        try {
-            await loadBookingsFromAPI();
-            await loadUsersFromAPI();
-            showNotification('Daten aktualisiert', 'success');
-        } catch (error) {
-            showNotification('Fehler beim Aktualisieren', 'error');
-        } finally {
-            setLoading(false);
-        }
+    const refreshData = () => {
+        showNotification('Daten aktualisiert', 'success');
     };
 
     // Render Login wenn nicht angemeldet
@@ -606,6 +362,7 @@ const RoomBookingApp = () => {
                 onLogin={handleLogin}
                 users={demoUsers}
                 loading={loading}
+                showNotification={showNotification}
             />
         );
     }
@@ -615,7 +372,7 @@ const RoomBookingApp = () => {
         return (
             <div className="min-h-screen bg-gray-50 flex items-center justify-center">
                 <div className="text-center">
-                    <div className="loading-spinner"></div>
+                    <RefreshCw className="h-12 w-12 animate-spin text-blue-600 mx-auto mb-4" />
                     <p className="text-gray-600 mt-4">Lädt...</p>
                 </div>
             </div>
@@ -636,17 +393,17 @@ const RoomBookingApp = () => {
 
                 {/* Header */}
                 <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-                    <div className="flex justify-between items-center">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                         <div className="flex items-center gap-3">
-                            <Calendar className="h-8 w-8 text-blue-600" />
+                            <Calendar className="h-8 w-8 text-blue-600 flex-shrink-0" />
                             <div>
                                 <h1 className="text-2xl font-bold text-gray-900">Vereinsraum Buchung</h1>
                                 <p className="text-gray-600">
                                     Willkommen, {currentUser.name}
                                     {currentUser.role === 'admin' && (
                                         <span className="ml-2 px-2 py-1 bg-yellow-100 text-yellow-800 rounded text-xs">
-                      Administrator
-                    </span>
+                                            Administrator
+                                        </span>
                                     )}
                                 </p>
                             </div>
@@ -668,8 +425,8 @@ const RoomBookingApp = () => {
                             >
                                 {currentView === 'calendar' ? <List className="h-4 w-4" /> : <Grid className="h-4 w-4" />}
                                 <span className="hidden sm:inline">
-                  {currentView === 'calendar' ? 'Tagesansicht' : 'Kalender'}
-                </span>
+                                    {currentView === 'calendar' ? 'Tagesansicht' : 'Kalender'}
+                                </span>
                             </button>
 
                             <button
@@ -745,7 +502,6 @@ const RoomBookingApp = () => {
                     users={users}
                     bookings={bookings}
                     onClose={() => setShowAdminPanel(false)}
-                    onUserAction={loadUsersFromAPI}
                     showNotification={showNotification}
                 />
             )}
@@ -787,64 +543,65 @@ const CalendarView = ({
         {/* Calendar Grid */}
         <div className="grid grid-cols-7 gap-1 bg-gray-200 rounded-lg overflow-hidden">
             {/* Day Headers */}
-            {['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'].map((day, index) => (
+            {['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'].map((day) => (
                 <div key={day} className="bg-gray-100 p-2 text-center text-sm font-medium text-gray-700">
                     <span className="hidden sm:inline">{day}</span>
                     <span className="sm:hidden">{day.slice(0, 2)}</span>
                 </div>
             ))}
-{/* Calendar Days */}
-{getDaysInMonth(currentMonth).map((date, index) => {
-    const bookingsForDay = getBookingsForDay(date);
-    const isToday = date && date.toDateString() === new Date().toDateString();
-    const isSelected = date && date.toISOString().split('T')[0] === selectedDate;
-    const isWeekend = date && (date.getDay() === 0 || date.getDay() === 6);
 
-    return (
-        <div
-            key={index}
-            className={`min-h-[80px] sm:min-h-[100px] p-1 bg-white border border-gray-100 ${
-                date ? 'hover:bg-gray-50 cursor-pointer transition-colors' : ''
-            } ${isToday ? 'bg-blue-50 border-blue-200 ring-2 ring-blue-300' : ''} ${
-                isSelected ? 'bg-blue-100 border-blue-300' : ''
-            } ${isWeekend ? 'bg-gray-25' : ''}`}
-            onClick={() => date && selectDate(date)}
-        >
-            {date && (
-                <>
-                    <div className={`text-sm font-medium mb-1 ${
-                        isToday ? 'text-blue-600 font-bold' : 'text-gray-900'
-                    } ${isWeekend ? 'text-gray-600' : ''}`}>
-                        {date.getDate()}
-                    </div>
-                    <div className="space-y-1">
-                        {bookingsForDay.slice(0, 2).map(booking => (
-                            <div
-                                key={booking.id}
-                                className={`text-xs px-1 py-0.5 rounded truncate cursor-pointer transition-colors ${
-                                    booking.isRecurring
-                                        ? 'bg-green-100 text-green-800 hover:bg-green-200'
-                                        : 'bg-blue-100 text-blue-800 hover:bg-blue-200'
-                                }`}
-                                title={`${booking.title}\n${formatTime(booking.startTime)} - ${formatTime(booking.endTime)}\nVon: ${booking.userName}${booking.description ? '\n' + booking.description : ''}`}
-                            >
-                                <span className="font-medium">{formatTime(booking.startTime)}</span>
-                                <span className="ml-1">{booking.title}</span>
-                            </div>
-                        ))}
-                        {bookingsForDay.length > 2 && (
-                            <div className="text-xs text-gray-500 font-medium">
-                                +{bookingsForDay.length - 2} weitere
-                            </div>
+            {/* Calendar Days */}
+            {getDaysInMonth(currentMonth).map((date, index) => {
+                const bookingsForDay = getBookingsForDay(date);
+                const isToday = date && date.toDateString() === new Date().toDateString();
+                const isSelected = date && date.toISOString().split('T')[0] === selectedDate;
+                const isWeekend = date && (date.getDay() === 0 || date.getDay() === 6);
+
+                return (
+                    <div
+                        key={index}
+                        className={`min-h-[80px] sm:min-h-[100px] p-1 bg-white border border-gray-100 ${
+                            date ? 'hover:bg-gray-50 cursor-pointer transition-colors' : ''
+                        } ${isToday ? 'bg-blue-50 border-blue-200 ring-2 ring-blue-300' : ''} ${
+                            isSelected ? 'bg-blue-100 border-blue-300' : ''
+                        } ${isWeekend ? 'bg-gray-25' : ''}`}
+                        onClick={() => date && selectDate(date)}
+                    >
+                        {date && (
+                            <>
+                                <div className={`text-sm font-medium mb-1 ${
+                                    isToday ? 'text-blue-600 font-bold' : 'text-gray-900'
+                                } ${isWeekend ? 'text-gray-600' : ''}`}>
+                                    {date.getDate()}
+                                </div>
+                                <div className="space-y-1">
+                                    {bookingsForDay.slice(0, 2).map(booking => (
+                                        <div
+                                            key={booking.id}
+                                            className={`text-xs px-1 py-0.5 rounded truncate cursor-pointer transition-colors ${
+                                                booking.isRecurring
+                                                    ? 'bg-green-100 text-green-800 hover:bg-green-200'
+                                                    : 'bg-blue-100 text-blue-800 hover:bg-blue-200'
+                                            }`}
+                                            title={`${booking.title}\n${formatTime(booking.startTime)} - ${formatTime(booking.endTime)}\nVon: ${booking.userName}${booking.description ? '\n' + booking.description : ''}`}
+                                        >
+                                            <span className="font-medium">{formatTime(booking.startTime)}</span>
+                                            <span className="ml-1">{booking.title}</span>
+                                        </div>
+                                    ))}
+                                    {bookingsForDay.length > 2 && (
+                                        <div className="text-xs text-gray-500 font-medium">
+                                            +{bookingsForDay.length - 2} weitere
+                                        </div>
+                                    )}
+                                </div>
+                            </>
                         )}
                     </div>
-                </>
-            )}
+                );
+            })}
         </div>
-    );
-})}
-</div>
-</div>
+    </div>
 );
 
 // Day View Component
@@ -861,7 +618,7 @@ const DayView = ({
     <>
         {/* Datum-Auswahl */}
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
                     <label className="text-lg font-medium text-gray-700">Datum auswählen:</label>
                     <input
@@ -892,21 +649,21 @@ const DayView = ({
                     </div>
                 ) : (
                     getBookingsForDate(selectedDate).map(booking => (
-                        <div key={booking.id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors hover-lift">
+                        <div key={booking.id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors">
                             <div className="flex justify-between items-start">
                                 <div className="flex-1">
                                     <div className="flex items-center gap-3 mb-2 flex-wrap">
                                         <Clock className="h-4 w-4 text-gray-500 flex-shrink-0" />
                                         <span className="font-medium text-gray-900">
-                      {formatTime(booking.startTime)} - {formatTime(booking.endTime)}
-                    </span>
+                                            {formatTime(booking.startTime)} - {formatTime(booking.endTime)}
+                                        </span>
                                         <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
-                      {booking.title}
-                    </span>
+                                            {booking.title}
+                                        </span>
                                         {booking.isRecurring && (
-                                            <span className="status-badge success">
-                        🔄 Wöchentliche Serie
-                      </span>
+                                            <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs">
+                                                🔄 Wöchentliche Serie
+                                            </span>
                                         )}
                                     </div>
                                     <div className="flex items-center gap-2 text-sm text-gray-600 mb-2">
@@ -914,8 +671,8 @@ const DayView = ({
                                         <span>{booking.userName}</span>
                                         {booking.userId === currentUser.id && (
                                             <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded text-xs">
-                        Ihre Buchung
-                      </span>
+                                                Ihre Buchung
+                                            </span>
                                         )}
                                     </div>
                                     {booking.description && (
@@ -953,14 +710,14 @@ const DayView = ({
 );
 
 // Login Form Component
-const LoginForm = ({ onLogin, users, loading }) => {
+const LoginForm = ({ onLogin, users, loading, showNotification }) => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        if (!loading) {
+        if (!loading && email && password) {
             onLogin(email, password);
         }
     };
@@ -1043,7 +800,7 @@ const LoginForm = ({ onLogin, users, loading }) => {
                     <p className="text-sm text-gray-600 mb-3 text-center">
                         💡 <strong>Schnell-Anmeldung</strong> (Klick zum Anmelden):
                     </p>
-                    <div className="grid grid-cols-1 gap-2">
+                    <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto">
                         {users.slice(0, 5).map(user => (
                             <button
                                 key={user.id}
@@ -1055,8 +812,8 @@ const LoginForm = ({ onLogin, users, loading }) => {
                                 <span className="text-gray-500 ml-2">({user.email})</span>
                                 {user.role === 'admin' && (
                                     <span className="ml-2 px-2 py-0.5 bg-yellow-100 text-yellow-700 rounded text-xs">
-                    Admin
-                  </span>
+                                        Admin
+                                    </span>
                                 )}
                             </button>
                         ))}
@@ -1082,7 +839,7 @@ const BookingForm = ({ onSubmit, onCancel, initialData, selectedDate, currentUse
     const [startTime, setStartTime] = useState(initialData?.startTime || '');
     const [endTime, setEndTime] = useState(initialData?.endTime || '');
     const [description, setDescription] = useState(initialData?.description || '');
-    const [isRecurring, setIsRecurring] = useState(false);
+    const [isRecurring, setIsRecurring] = useState(initialData?.isRecurring || false);
     const [submitting, setSubmitting] = useState(false);
 
     const handleSubmit = async (e) => {
@@ -1112,12 +869,13 @@ const BookingForm = ({ onSubmit, onCancel, initialData, selectedDate, currentUse
 
         try {
             const success = await onSubmit({
+                ...(initialData && { id: initialData.id }),
                 title,
                 date,
                 startTime,
                 endTime,
                 description,
-                isRecurring
+                isRecurring: initialData ? initialData.isRecurring : isRecurring
             });
 
             if (success !== false) {
@@ -1156,6 +914,9 @@ const BookingForm = ({ onSubmit, onCancel, initialData, selectedDate, currentUse
         const start = new Date(`2000-01-01T${startTime}:00`);
         const end = new Date(`2000-01-01T${endTime}:00`);
         const diffMs = end - start;
+
+        if (diffMs <= 0) return '';
+
         const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
         const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
 
@@ -1169,8 +930,8 @@ const BookingForm = ({ onSubmit, onCancel, initialData, selectedDate, currentUse
     };
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 modal-backdrop">
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-md modal-content modal-enter">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-lg shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
                 <div className="flex justify-between items-center p-6 border-b border-gray-200">
                     <h2 className="text-xl font-semibold text-gray-900">
                         {initialData ? 'Buchung bearbeiten' : 'Neue Buchung'}
@@ -1180,7 +941,7 @@ const BookingForm = ({ onSubmit, onCancel, initialData, selectedDate, currentUse
                         className="p-2 hover:bg-gray-100 rounded-full transition-colors"
                         disabled={submitting}
                     >
-                        <X />
+                        <X className="h-5 w-5" />
                     </button>
                 </div>
 
@@ -1248,13 +1009,13 @@ const BookingForm = ({ onSubmit, onCancel, initialData, selectedDate, currentUse
                         </div>
                     </div>
 
-                    {startTime && endTime && (
+                    {startTime && endTime && getDuration() && (
                         <div className="text-sm text-gray-600 bg-blue-50 p-3 rounded-lg">
                             <strong>Dauer:</strong> {getDuration()}
                         </div>
                     )}
 
-                    {/* Wiederholung Option */}
+                    {/* Wiederholung Option - nur bei neuen Buchungen */}
                     {!initialData && (
                         <div className="border border-gray-200 rounded-lg p-4 bg-gradient-to-r from-blue-50 to-indigo-50">
                             <div className="flex items-center gap-3 mb-3">
@@ -1275,8 +1036,8 @@ const BookingForm = ({ onSubmit, onCancel, initialData, selectedDate, currentUse
                                     <div className="flex items-center gap-2 mb-1">
                                         <Calendar className="h-4 w-4 text-blue-600" />
                                         <span className="font-medium">
-                      Erstellt {getRecurringCount()} Termine jeden {new Date(date + 'T00:00:00').toLocaleDateString('de-DE', { weekday: 'long' })}
-                    </span>
+                                            Erstellt {getRecurringCount()} Termine jeden {new Date(date + 'T00:00:00').toLocaleDateString('de-DE', { weekday: 'long' })}
+                                        </span>
                                     </div>
                                     <p className="text-xs text-gray-500">
                                         📅 Vom {new Date(date + 'T00:00:00').toLocaleDateString('de-DE')} bis 31.12.{new Date(date).getFullYear()}
@@ -1300,6 +1061,7 @@ const BookingForm = ({ onSubmit, onCancel, initialData, selectedDate, currentUse
                             rows="3"
                             placeholder="Zusätzliche Informationen zur Buchung (optional)..."
                             disabled={submitting}
+                            maxLength="500"
                         />
                         <p className="text-xs text-gray-500 mt-1">
                             {description.length}/500 Zeichen
@@ -1326,7 +1088,8 @@ const BookingForm = ({ onSubmit, onCancel, initialData, selectedDate, currentUse
                                     Speichert...
                                 </>
                             ) : (
-                                isRecurring ? `${getRecurringCount()} Termine erstellen` : initialData ? 'Änderungen speichern' : 'Buchung erstellen'
+                                isRecurring && !initialData ? `${getRecurringCount()} Termine erstellen` :
+                                    initialData ? 'Änderungen speichern' : 'Buchung erstellen'
                             )}
                         </button>
                     </div>
@@ -1369,7 +1132,7 @@ const Notification = ({ message, type, onClose }) => {
 };
 
 // Admin Panel Component
-const AdminPanel = ({ users, bookings, onClose, onUserAction, showNotification }) => {
+const AdminPanel = ({ users, bookings, onClose, showNotification }) => {
     const [activeTab, setActiveTab] = useState('users');
 
     const userStats = users.map(user => ({
@@ -1400,13 +1163,13 @@ const AdminPanel = ({ users, bookings, onClose, onUserAction, showNotification }
                     </button>
                 </div>
 
-                <div className="flex">
+                <div className="flex flex-col sm:flex-row">
                     {/* Sidebar */}
-                    <div className="w-48 bg-gray-50 p-4 border-r border-gray-200">
-                        <nav className="space-y-2">
+                    <div className="w-full sm:w-48 bg-gray-50 p-4 border-b sm:border-b-0 sm:border-r border-gray-200">
+                        <nav className="flex sm:flex-col gap-2">
                             <button
                                 onClick={() => setActiveTab('users')}
-                                className={`w-full text-left px-3 py-2 rounded-lg transition-colors ${
+                                className={`flex-1 sm:w-full text-left px-3 py-2 rounded-lg transition-colors ${
                                     activeTab === 'users' ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100'
                                 }`}
                             >
@@ -1415,7 +1178,7 @@ const AdminPanel = ({ users, bookings, onClose, onUserAction, showNotification }
                             </button>
                             <button
                                 onClick={() => setActiveTab('stats')}
-                                className={`w-full text-left px-3 py-2 rounded-lg transition-colors ${
+                                className={`flex-1 sm:w-full text-left px-3 py-2 rounded-lg transition-colors ${
                                     activeTab === 'stats' ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100'
                                 }`}
                             >
@@ -1435,12 +1198,12 @@ const AdminPanel = ({ users, bookings, onClose, onUserAction, showNotification }
                                         <div key={user.id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors">
                                             <div className="flex justify-between items-start">
                                                 <div>
-                                                    <div className="flex items-center gap-2 mb-1">
+                                                    <div className="flex items-center gap-2 mb-1 flex-wrap">
                                                         <span className="font-medium text-gray-900">{user.name}</span>
                                                         {user.role === 'admin' && (
                                                             <span className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded text-xs">
-                                Admin
-                              </span>
+                                                                Admin
+                                                            </span>
                                                         )}
                                                     </div>
                                                     <p className="text-sm text-gray-600">{user.email}</p>
@@ -1448,8 +1211,8 @@ const AdminPanel = ({ users, bookings, onClose, onUserAction, showNotification }
                                                         {user.bookingCount} Buchung(en)
                                                         {user.lastBooking && (
                                                             <span className="ml-2">
-                                • Letzte: {new Date(user.lastBooking + 'T00:00:00').toLocaleDateString('de-DE')}
-                              </span>
+                                                                • Letzte: {new Date(user.lastBooking + 'T00:00:00').toLocaleDateString('de-DE')}
+                                                            </span>
                                                         )}
                                                     </p>
                                                 </div>
@@ -1501,12 +1264,34 @@ const AdminPanel = ({ users, bookings, onClose, onUserAction, showNotification }
                                             .map((user, index) => (
                                                 <div key={user.id} className="flex justify-between items-center">
                                                     <div className="flex items-center gap-2">
-                            <span className="w-6 h-6 bg-blue-100 text-blue-800 rounded-full text-xs font-bold flex items-center justify-center">
-                              {index + 1}
-                            </span>
+                                                        <span className="w-6 h-6 bg-blue-100 text-blue-800 rounded-full text-xs font-bold flex items-center justify-center">
+                                                            {index + 1}
+                                                        </span>
                                                         <span className="text-sm font-medium">{user.name}</span>
                                                     </div>
                                                     <span className="text-sm text-gray-600">{user.bookingCount} Buchungen</span>
+                                                </div>
+                                            ))
+                                        }
+                                    </div>
+                                </div>
+
+                                <div className="mt-6 bg-gray-50 p-4 rounded-lg">
+                                    <h4 className="font-medium text-gray-900 mb-3">Nächste Termine</h4>
+                                    <div className="space-y-2 max-h-48 overflow-y-auto">
+                                        {bookings
+                                            .filter(b => new Date(b.date) >= new Date())
+                                            .sort((a, b) => new Date(a.date) - new Date(b.date))
+                                            .slice(0, 10)
+                                            .map((booking) => (
+                                                <div key={booking.id} className="flex justify-between items-center text-sm">
+                                                    <div>
+                                                        <span className="font-medium">{booking.title}</span>
+                                                        <span className="text-gray-500 ml-2">- {booking.userName}</span>
+                                                    </div>
+                                                    <span className="text-gray-600">
+                                                        {new Date(booking.date + 'T00:00:00').toLocaleDateString('de-DE', { month: 'short', day: 'numeric' })}
+                                                    </span>
                                                 </div>
                                             ))
                                         }
@@ -1521,804 +1306,4 @@ const AdminPanel = ({ users, bookings, onClose, onUserAction, showNotification }
     );
 };
 
-export default RoomBookingApp;import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import {
-    Calendar,
-    Clock,
-    User,
-    Plus,
-    X,
-    Edit2,
-    Trash2,
-    LogOut,
-    ChevronLeft,
-    ChevronRight,
-    Grid,
-    List,
-    Settings,
-    Users,
-    AlertCircle,
-    CheckCircle,
-    RefreshCw
-} from 'lucide-react';
-
-const RoomBookingApp = () => {
-    // Haupt-State
-    const [currentUser, setCurrentUser] = useState(null);
-    const [showLogin, setShowLogin] = useState(true);
-    const [bookings, setBookings] = useState([]);
-    const [users, setUsers] = useState([]);
-    const [loading, setLoading] = useState(false);
-
-    // UI-State
-    const [showBookingForm, setShowBookingForm] = useState(false);
-    const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
-    const [editingBooking, setEditingBooking] = useState(null);
-    const [currentView, setCurrentView] = useState('calendar');
-    const [currentMonth, setCurrentMonth] = useState(new Date());
-    const [showAdminPanel, setShowAdminPanel] = useState(false);
-
-    // Notification State
-    const [notification, setNotification] = useState(null);
-
-    // 15 Demo-Benutzer für den Verein
-    const demoUsers = useMemo(() => [
-        { id: 1, name: 'Anna Schmidt', email: 'anna@verein.de', password: 'demo123', role: 'user' },
-        { id: 2, name: 'Max Müller', email: 'max@verein.de', password: 'demo123', role: 'admin' },
-        { id: 3, name: 'Lisa Weber', email: 'lisa@verein.de', password: 'demo123', role: 'user' },
-        { id: 4, name: 'Thomas Klein', email: 'thomas@verein.de', password: 'demo123', role: 'user' },
-        { id: 5, name: 'Sarah Fischer', email: 'sarah@verein.de', password: 'demo123', role: 'user' },
-        { id: 6, name: 'Michael Wagner', email: 'michael@verein.de', password: 'demo123', role: 'user' },
-        { id: 7, name: 'Julia Becker', email: 'julia@verein.de', password: 'demo123', role: 'user' },
-        { id: 8, name: 'David Hoffmann', email: 'david@verein.de', password: 'demo123', role: 'user' },
-        { id: 9, name: 'Laura Schulz', email: 'laura@verein.de', password: 'demo123', role: 'user' },
-        { id: 10, name: 'Stefan Meyer', email: 'stefan@verein.de', password: 'demo123', role: 'user' },
-        { id: 11, name: 'Nina Richter', email: 'nina@verein.de', password: 'demo123', role: 'user' },
-        { id: 12, name: 'Marco Fischer', email: 'marco@verein.de', password: 'demo123', role: 'user' },
-        { id: 13, name: 'Eva Zimmermann', email: 'eva@verein.de', password: 'demo123', role: 'user' },
-        { id: 14, name: 'Paul Krüger', email: 'paul@verein.de', password: 'demo123', role: 'user' },
-        { id: 15, name: 'Sophie Wolf', email: 'sophie@verein.de', password: 'demo123', role: 'user' }
-    ], []);
-
-    // Demo-Buchungen
-    const demoBookings = useMemo(() => [
-        {
-            id: 1,
-            userId: 1,
-            userName: 'Anna Schmidt',
-            title: 'Yoga-Kurs',
-            date: '2025-08-15',
-            startTime: '18:00',
-            endTime: '19:30',
-            description: 'Wöchentlicher Yoga-Kurs für Anfänger'
-        },
-        {
-            id: 2,
-            userId: 2,
-            userName: 'Max Müller',
-            title: 'Vorstandssitzung',
-            date: '2025-08-16',
-            startTime: '19:00',
-            endTime: '21:00',
-            description: 'Monatliche Vorstandssitzung'
-        },
-        {
-            id: 3,
-            userId: 3,
-            userName: 'Lisa Weber',
-            title: 'Buchclub',
-            date: '2025-08-17',
-            startTime: '15:00',
-            endTime: '17:00',
-            description: 'Monatliches Treffen des Buchclubs'
-        }
-    ], []);
-
-    // Initialisierung beim App-Start
-    useEffect(() => {
-        initializeApp();
-    }, []);
-
-    const initializeApp = async () => {
-        try {
-            setLoading(true);
-
-            // Lade gespeicherte Benutzerdaten
-            const savedUser = localStorage.getItem('vereinsraum_currentUser');
-            const savedToken = localStorage.getItem('vereinsraum_token');
-
-            if (savedUser && savedToken) {
-                const user = JSON.parse(savedUser);
-
-                // Verifiziere Token mit API
-                const isValid = await verifyToken(savedToken);
-
-                if (isValid) {
-                    setCurrentUser(user);
-                    setShowLogin(false);
-                    await loadBookingsFromAPI();
-                    await loadUsersFromAPI();
-                } else {
-                    // Token ungültig - Logout
-                    handleLogout();
-                }
-            } else {
-                // Fallback zu Demo-Daten
-                setUsers(demoUsers);
-                setBookings(demoBookings);
-            }
-        } catch (error) {
-            console.error('Fehler bei App-Initialisierung:', error);
-            showNotification('Fehler beim Laden der App', 'error');
-
-            // Fallback zu Demo-Daten
-            setUsers(demoUsers);
-            setBookings(demoBookings);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    // API-Funktionen
-    const verifyToken = async (token) => {
-        try {
-            const response = await fetch('/api/auth/verify', {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-
-            return response.ok;
-        } catch (error) {
-            console.error('Token-Verifikation fehlgeschlagen:', error);
-            return false;
-        }
-    };
-
-    const loadBookingsFromAPI = async () => {
-        try {
-            const response = await fetch('/api/bookings');
-            if (response.ok) {
-                const data = await response.json();
-                setBookings(data.bookings || data);
-            } else {
-                throw new Error('API-Fehler beim Laden der Buchungen');
-            }
-        } catch (error) {
-            console.error('Fehler beim Laden der Buchungen:', error);
-
-            // Fallback zu lokalen Daten
-            const savedBookings = localStorage.getItem('vereinsraum_bookings');
-            if (savedBookings) {
-                setBookings(JSON.parse(savedBookings));
-            } else {
-                setBookings(demoBookings);
-                localStorage.setItem('vereinsraum_bookings', JSON.stringify(demoBookings));
-            }
-        }
-    };
-
-    const loadUsersFromAPI = async () => {
-        try {
-            const response = await fetch('/api/auth/users');
-            if (response.ok) {
-                const apiUsers = await response.json();
-                setUsers(apiUsers);
-            } else {
-                setUsers(demoUsers);
-            }
-        } catch (error) {
-            console.error('Fehler beim Laden der Benutzer:', error);
-            setUsers(demoUsers);
-        }
-    };
-
-    const handleLogin = async (email, password) => {
-        try {
-            setLoading(true);
-
-            const response = await fetch('/api/auth/login', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ email, password }),
-            });
-
-            const data = await response.json();
-
-            if (response.ok && data.success) {
-                setCurrentUser(data.user);
-                setShowLogin(false);
-                localStorage.setItem('vereinsraum_currentUser', JSON.stringify(data.user));
-                localStorage.setItem('vereinsraum_token', data.token);
-
-                await loadBookingsFromAPI();
-                await loadUsersFromAPI();
-
-                showNotification(`Willkommen, ${data.user.name}!`, 'success');
-            } else {
-                throw new Error(data.error || 'Anmeldung fehlgeschlagen');
-            }
-        } catch (error) {
-            console.error('Login-Fehler:', error);
-
-            // Fallback zu Demo-Login
-            const user = demoUsers.find(u => u.email === email && u.password === password);
-            if (user) {
-                setCurrentUser(user);
-                setShowLogin(false);
-                localStorage.setItem('vereinsraum_currentUser', JSON.stringify(user));
-
-                // Lade lokale Daten
-                const savedBookings = localStorage.getItem('vereinsraum_bookings');
-                if (savedBookings) {
-                    setBookings(JSON.parse(savedBookings));
-                } else {
-                    setBookings(demoBookings);
-                    localStorage.setItem('vereinsraum_bookings', JSON.stringify(demoBookings));
-                }
-                setUsers(demoUsers);
-
-                showNotification(`Willkommen, ${user.name}! (Offline-Modus)`, 'warning');
-            } else {
-                showNotification('Ungültige Anmeldedaten', 'error');
-            }
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleLogout = useCallback(() => {
-        setCurrentUser(null);
-        setShowLogin(true);
-        setShowAdminPanel(false);
-        localStorage.removeItem('vereinsraum_currentUser');
-        localStorage.removeItem('vereinsraum_token');
-        setBookings([]);
-        setUsers([]);
-        showNotification('Erfolgreich abgemeldet', 'success');
-    }, []);
-
-    const saveBookingsToAPI = async (bookingData, isUpdate = false, deleteParams = null) => {
-        try {
-            let response;
-            const token = localStorage.getItem('vereinsraum_token');
-
-            if (deleteParams) {
-                // Löschen
-                const deleteUrl = typeof deleteParams === 'string' && deleteParams.includes('recurringGroup')
-                    ? `/api/bookings?${deleteParams}`
-                    : `/api/bookings?id=${deleteParams}`;
-
-                response = await fetch(deleteUrl, {
-                    method: 'DELETE',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    }
-                });
-            } else if (isUpdate) {
-                // Aktualisieren
-                response = await fetch('/api/bookings', {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    },
-                    body: JSON.stringify(bookingData)
-                });
-            } else {
-                // Erstellen
-                response = await fetch('/api/bookings', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    },
-                    body: JSON.stringify(bookingData)
-                });
-            }
-
-            if (response.ok) {
-                const result = await response.json();
-                await loadBookingsFromAPI();
-
-                if (result.message) {
-                    showNotification(result.message, 'success');
-                }
-
-                return true;
-            } else {
-                const errorData = await response.json();
-                throw new Error(errorData.error || 'API-Fehler');
-            }
-        } catch (error) {
-            console.error('API-Fehler:', error);
-            showNotification(error.message || 'Fehler beim Speichern', 'error');
-            return false;
-        }
-    };
-
-    // Fallback zu lokaler Speicherung
-    const saveBookingsLocally = useCallback((newBookings) => {
-        setBookings(newBookings);
-        localStorage.setItem('vereinsraum_bookings', JSON.stringify(newBookings));
-    }, []);
-
-    const addBooking = async (bookingData) => {
-        if (bookingData.isRecurring) {
-            return await addRecurringBookings(bookingData);
-        } else {
-            return await addSingleBooking(bookingData);
-        }
-    };
-
-    const addSingleBooking = async (bookingData) => {
-        // Lokale Konfliktprüfung
-        const hasConflict = bookings.some(booking =>
-            booking.date === bookingData.date &&
-            booking.id !== (editingBooking?.id || 0) &&
-            (
-                (bookingData.startTime >= booking.startTime && bookingData.startTime < booking.endTime) ||
-                (bookingData.endTime > booking.startTime && bookingData.endTime <= booking.endTime) ||
-                (bookingData.startTime <= booking.startTime && bookingData.endTime >= booking.endTime)
-            )
-        );
-
-        if (hasConflict) {
-            showNotification('Konflikt: Der Raum ist zu dieser Zeit bereits gebucht!', 'error');
-            return false;
-        }
-
-        // API-Daten vorbereiten
-        const apiData = {
-            ...bookingData,
-            userId: currentUser.id,
-            userName: currentUser.name
-        };
-
-        const success = await saveBookingsToAPI(apiData, !!editingBooking);
-
-        if (!success) {
-            // Fallback zu lokaler Speicherung
-            if (editingBooking) {
-                const updatedBookings = bookings.map(b =>
-                    b.id === editingBooking.id ? { ...editingBooking, ...bookingData } : b
-                );
-                saveBookingsLocally(updatedBookings);
-            } else {
-                const newBooking = {
-                    id: Date.now(),
-                    userId: currentUser.id,
-                    userName: currentUser.name,
-                    ...bookingData
-                };
-                saveBookingsLocally([...bookings, newBooking]);
-            }
-
-            showNotification('Buchung lokal gespeichert (Offline-Modus)', 'warning');
-        }
-
-        setEditingBooking(null);
-        setShowBookingForm(false);
-        return true;
-    };
-
-    const addRecurringBookings = async (bookingData) => {
-        const apiData = {
-            ...bookingData,
-            userId: currentUser.id,
-            userName: currentUser.name
-        };
-
-        const success = await saveBookingsToAPI(apiData);
-
-        if (!success) {
-            // Fallback zu lokaler Erstellung
-            const result = createRecurringBookingsLocally(bookingData);
-            if (result.success) {
-                saveBookingsLocally([...bookings, ...result.bookings]);
-                showNotification(result.message + ' (Offline-Modus)', 'warning');
-            } else {
-                return false;
-            }
-        }
-
-        setShowBookingForm(false);
-        return true;
-    };
-
-    const createRecurringBookingsLocally = (bookingData) => {
-        const startDate = new Date(bookingData.date);
-        const endOfYear = new Date(startDate.getFullYear(), 11, 31);
-        const newBookings = [];
-        const conflicts = [];
-
-        let currentDate = new Date(startDate);
-        let weekCount = 0;
-
-        while (currentDate <= endOfYear) {
-            const dateStr = currentDate.toISOString().split('T')[0];
-
-            const hasConflict = bookings.some(booking =>
-                booking.date === dateStr &&
-                (
-                    (bookingData.startTime >= booking.startTime && bookingData.startTime < booking.endTime) ||
-                    (bookingData.endTime > booking.startTime && bookingData.endTime <= booking.endTime) ||
-                    (bookingData.startTime <= booking.startTime && bookingData.endTime >= booking.endTime)
-                )
-            );
-
-            if (hasConflict) {
-                conflicts.push(dateStr);
-            } else {
-                newBookings.push({
-                    id: Date.now() + weekCount,
-                    userId: currentUser.id,
-                    userName: currentUser.name,
-                    title: bookingData.title,
-                    date: dateStr,
-                    startTime: bookingData.startTime,
-                    endTime: bookingData.endTime,
-                    description: bookingData.description,
-                    isRecurring: true,
-                    recurringGroup: Date.now().toString()
-                });
-            }
-
-            currentDate.setDate(currentDate.getDate() + 7);
-            weekCount++;
-        }
-
-        if (conflicts.length > 0) {
-            const conflictDates = conflicts.map(date =>
-                new Date(date + 'T00:00:00').toLocaleDateString('de-DE')
-            ).join(', ');
-
-            const proceed = window.confirm(
-                `Konflikte an folgenden Terminen gefunden: ${conflictDates}\n\n` +
-                `${newBookings.length} Termine können erstellt werden. Fortfahren?`
-            );
-
-            if (!proceed) {
-                return { success: false };
-            }
-        }
-
-        return {
-            success: true,
-            bookings: newBookings,
-            message: `${newBookings.length} wiederkehrende Termine bis Jahresende erstellt`
-        };
-    };
-
-    const deleteBooking = async (id) => {
-        const bookingToDelete = bookings.find(b => b.id === id);
-
-        if (bookingToDelete?.isRecurring) {
-            const isDeleteSeries = window.confirm(
-                'Dies ist ein wiederkehrender Termin. Möchten Sie alle Termine dieser Serie löschen?\n\n' +
-                'OK = Ganze Serie löschen\n' +
-                'Abbrechen = Nur diesen Termin löschen'
-            );
-
-            if (isDeleteSeries && bookingToDelete.recurringGroup) {
-                const success = await saveBookingsToAPI(null, false, `recurringGroup=${bookingToDelete.recurringGroup}`);
-
-                if (!success) {
-                    const updatedBookings = bookings.filter(b => b.recurringGroup !== bookingToDelete.recurringGroup);
-                    const deletedCount = bookings.length - updatedBookings.length;
-                    saveBookingsLocally(updatedBookings);
-                    showNotification(`${deletedCount} Termine der Serie gelöscht (Offline)`, 'warning');
-                }
-            } else {
-                const success = await saveBookingsToAPI(null, false, id);
-
-                if (!success) {
-                    const updatedBookings = bookings.filter(b => b.id !== id);
-                    saveBookingsLocally(updatedBookings);
-                    showNotification('Termin gelöscht (Offline)', 'warning');
-                }
-            }
-        } else {
-            if (window.confirm('Buchung wirklich löschen?')) {
-                const success = await saveBookingsToAPI(null, false, id);
-
-                if (!success) {
-                    const updatedBookings = bookings.filter(b => b.id !== id);
-                    saveBookingsLocally(updatedBookings);
-                    showNotification('Termin gelöscht (Offline)', 'warning');
-                }
-            }
-        }
-    };
-
-    const startEdit = (booking) => {
-        setEditingBooking(booking);
-        setShowBookingForm(true);
-    };
-
-    // Notification System
-    const showNotification = useCallback((message, type = 'info') => {
-        setNotification({ message, type, id: Date.now() });
-
-        // Auto-hide nach 5 Sekunden
-        setTimeout(() => {
-            setNotification(null);
-        }, 5000);
-    }, []);
-
-    // Helper Functions
-    const getBookingsForDate = useCallback((date) => {
-        return bookings
-            .filter(b => b.date === date)
-            .sort((a, b) => a.startTime.localeCompare(b.startTime));
-    }, [bookings]);
-
-    const formatTime = useCallback((time) => {
-        return time.slice(0, 5);
-    }, []);
-
-    const formatDate = useCallback((dateStr) => {
-        return new Date(dateStr + 'T00:00:00').toLocaleDateString('de-DE', {
-            weekday: 'long',
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric'
-        });
-    }, []);
-
-    // Calendar Functions
-    const getDaysInMonth = useCallback((date) => {
-        const year = date.getFullYear();
-        const month = date.getMonth();
-        const firstDay = new Date(year, month, 1);
-        const lastDay = new Date(year, month + 1, 0);
-        const daysInMonth = lastDay.getDate();
-        const startingDayOfWeek = firstDay.getDay();
-
-        const days = [];
-
-        // Leere Zellen vor Monatsbeginn
-        for (let i = 0; i < startingDayOfWeek; i++) {
-            days.push(null);
-        }
-
-        // Tage des Monats
-        for (let day = 1; day <= daysInMonth; day++) {
-            days.push(new Date(year, month, day));
-        }
-
-        return days;
-    }, []);
-
-    const getBookingsForDay = useCallback((date) => {
-        if (!date) return [];
-        const dateStr = date.toISOString().split('T')[0];
-        return bookings.filter(b => b.date === dateStr);
-    }, [bookings]);
-
-    const navigateMonth = useCallback((direction) => {
-        setCurrentMonth(prev => {
-            const newMonth = new Date(prev);
-            newMonth.setMonth(prev.getMonth() + direction);
-            return newMonth;
-        });
-    }, []);
-
-    const selectDate = useCallback((date) => {
-        setSelectedDate(date.toISOString().split('T')[0]);
-        setCurrentView('day');
-    }, []);
-
-    const refreshData = async () => {
-        setLoading(true);
-        try {
-            await loadBookingsFromAPI();
-            await loadUsersFromAPI();
-            showNotification('Daten aktualisiert', 'success');
-        } catch (error) {
-            showNotification('Fehler beim Aktualisieren', 'error');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    // Render Login wenn nicht angemeldet
-    if (showLogin) {
-        return (
-            <LoginForm
-                onLogin={handleLogin}
-                users={demoUsers}
-                loading={loading}
-            />
-        );
-    }
-
-    // Loading State
-    if (loading) {
-        return (
-            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-                <div className="text-center">
-                    <div className="loading-spinner"></div>
-                    <p className="text-gray-600 mt-4">Lädt...</p>
-                </div>
-            </div>
-        );
-    }
-
-    return (
-        <div className="min-h-screen bg-gray-50 p-4">
-            <div className="max-w-6xl mx-auto">
-                {/* Notification */}
-                {notification && (
-                    <Notification
-                        message={notification.message}
-                        type={notification.type}
-                        onClose={() => setNotification(null)}
-                    />
-                )}
-
-                {/* Header */}
-                <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-                    <div className="flex justify-between items-center">
-                        <div className="flex items-center gap-3">
-                            <Calendar className="h-8 w-8 text-blue-600" />
-                            <div>
-                                <h1 className="text-2xl font-bold text-gray-900">Vereinsraum Buchung</h1>
-                                <p className="text-gray-600">
-                                    Willkommen, {currentUser.name}
-                                    {currentUser.role === 'admin' && (
-                                        <span className="ml-2 px-2 py-1 bg-yellow-100 text-yellow-800 rounded text-xs">
-                      Administrator
-                    </span>
-                                    )}
-                                </p>
-                            </div>
-                        </div>
-
-                        <div className="flex gap-2 flex-wrap">
-                            <button
-                                onClick={refreshData}
-                                className="flex items-center gap-2 bg-green-600 text-white px-3 py-2 rounded-lg hover:bg-green-700 transition-colors"
-                                disabled={loading}
-                            >
-                                <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-                                <span className="hidden sm:inline">Aktualisieren</span>
-                            </button>
-
-                            <button
-                                onClick={() => setCurrentView(currentView === 'calendar' ? 'day' : 'calendar')}
-                                className="flex items-center gap-2 bg-gray-600 text-white px-3 py-2 rounded-lg hover:bg-gray-700 transition-colors"
-                            >
-                                {currentView === 'calendar' ? <List className="h-4 w-4" /> : <Grid className="h-4 w-4" />}
-                                <span className="hidden sm:inline">
-                  {currentView === 'calendar' ? 'Tagesansicht' : 'Kalender'}
-                </span>
-                            </button>
-
-                            <button
-                                onClick={() => setShowBookingForm(true)}
-                                className="flex items-center gap-2 bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-                            >
-                                <Plus className="h-4 w-4" />
-                                <span className="hidden sm:inline">Neue Buchung</span>
-                            </button>
-
-                            {currentUser.role === 'admin' && (
-                                <button
-                                    onClick={() => setShowAdminPanel(true)}
-                                    className="flex items-center gap-2 bg-purple-600 text-white px-3 py-2 rounded-lg hover:bg-purple-700 transition-colors"
-                                >
-                                    <Users className="h-4 w-4" />
-                                    <span className="hidden sm:inline">Verwaltung</span>
-                                </button>
-                            )}
-
-                            <button
-                                onClick={handleLogout}
-                                className="flex items-center gap-2 bg-gray-600 text-white px-3 py-2 rounded-lg hover:bg-gray-700 transition-colors"
-                            >
-                                <LogOut className="h-4 w-4" />
-                                <span className="hidden sm:inline">Abmelden</span>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Main Content */}
-                {currentView === 'calendar' ? (
-                    <CalendarView
-                        currentMonth={currentMonth}
-                        navigateMonth={navigateMonth}
-                        getDaysInMonth={getDaysInMonth}
-                        getBookingsForDay={getBookingsForDay}
-                        selectDate={selectDate}
-                        selectedDate={selectedDate}
-                        formatTime={formatTime}
-                    />
-                ) : (
-                    <DayView
-                        selectedDate={selectedDate}
-                        setSelectedDate={setSelectedDate}
-                        getBookingsForDate={getBookingsForDate}
-                        formatTime={formatTime}
-                        formatDate={formatDate}
-                        currentUser={currentUser}
-                        startEdit={startEdit}
-                        deleteBooking={deleteBooking}
-                    />
-                )}
-            </div>
-
-            {/* Modals */}
-            {showBookingForm && (
-                <BookingForm
-                    onSubmit={addBooking}
-                    onCancel={() => {
-                        setShowBookingForm(false);
-                        setEditingBooking(null);
-                    }}
-                    initialData={editingBooking}
-                    selectedDate={selectedDate}
-                    currentUser={currentUser}
-                />
-            )}
-
-            {showAdminPanel && currentUser.role === 'admin' && (
-                <AdminPanel
-                    users={users}
-                    bookings={bookings}
-                    onClose={() => setShowAdminPanel(false)}
-                    onUserAction={loadUsersFromAPI}
-                    showNotification={showNotification}
-                />
-            )}
-        </div>
-    );
-};
-
-// Calendar View Component
-const CalendarView = ({
-                          currentMonth,
-                          navigateMonth,
-                          getDaysInMonth,
-                          getBookingsForDay,
-                          selectDate,
-                          selectedDate,
-                          formatTime
-                      }) => (
-    <div className="bg-white rounded-lg shadow-sm p-6">
-        <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-semibold text-gray-900">
-                {currentMonth.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' })}
-            </h2>
-            <div className="flex gap-2">
-                <button
-                    onClick={() => navigateMonth(-1)}
-                    className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-                >
-                    <ChevronLeft className="h-5 w-5" />
-                </button>
-                <button
-                    onClick={() => navigateMonth(1)}
-                    className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-                >
-                    <ChevronRight className="h-5 w-5" />
-                </button>
-            </div>
-        </div>
-
-        {/* Calendar Grid */}
-        <div className="grid grid-cols-7 gap-1 bg-gray-200 rounded-lg overflow-hidden">
-            {/* Day Headers */}
-            {['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'].map((day, index) => (
-                <div key={day} className="bg-gray-100 p-2 text-center text-sm font-medium text-gray-700">
-                    <span className="hidden sm:inline">{day}</span>)
-                </div>
-
-
-
-
-
+export default RoomBookingApp;
